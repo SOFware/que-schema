@@ -7,13 +7,15 @@ module QueSchema
     private
 
     def tables(stream)
-      super
-
+      # Emit que_define_schema before tables so Que objects
+      # exist when later functions/triggers reference them.
       if postgresql? && (version = que_schema_version) && version > 0
         stream.puts "  # Que internal schema — emitted by que-schema gem"
         stream.puts "  que_define_schema(version: #{version})"
         stream.puts
       end
+
+      super
     end
 
     # Suppress Que-managed tables — Que.migrate! recreates them during
@@ -41,12 +43,51 @@ module QueSchema
       @connection.respond_to?(:adapter_name) && @connection.adapter_name.match?(/postgresql/i)
     end
 
-    # Only tables created by Que.migrate! — other que_* tables
-    # (e.g. que_scheduler_*) belong to separate gems.
-    QUE_MANAGED_TABLES = %w[que_jobs que_lockers que_values].freeze
+    # Only objects created by Que.migrate! — other que_*
+    # objects (e.g. que_scheduler_*) belong to separate gems.
+    QUE_MANAGED_TABLES = %w[
+      que_jobs que_lockers que_values
+    ].freeze
+
+    QUE_MANAGED_FUNCTIONS = %w[
+      que_validate_tags que_determine_job_state
+      que_job_notify que_state_notify
+    ].freeze
+
+    QUE_MANAGED_TRIGGERS = %w[
+      que_job_notify que_state_notify
+    ].freeze
 
     def que_table?(table_name)
       QUE_MANAGED_TABLES.include?(table_name)
+    end
+
+    def que_function?(name)
+      QUE_MANAGED_FUNCTIONS.include?(name.to_s)
+    end
+
+    def que_trigger?(name)
+      QUE_MANAGED_TRIGGERS.include?(name.to_s)
+    end
+
+    # Override Fx::SchemaDumper methods to filter out
+    # Que-managed objects when Fx is present.
+    def functions(stream)
+      return super unless postgresql? && defined?(::Fx)
+
+      dumpable = Fx.database.functions
+        .reject { |f| que_function?(f.name) }
+      dumpable.each { |f| stream.puts(f.to_schema) }
+      stream.puts if dumpable.any?
+    end
+
+    def triggers(stream)
+      return super unless postgresql? && defined?(::Fx)
+
+      dumpable = Fx.database.triggers
+        .reject { |t| que_trigger?(t.name) }
+      stream.puts if dumpable.any?
+      dumpable.each { |t| stream.puts(t.to_schema) }
     end
   end
 end

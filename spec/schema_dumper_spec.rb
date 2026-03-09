@@ -45,14 +45,14 @@ RSpec.describe QueSchema::SchemaDumper do
         allow(connection).to receive(:execute).and_return([{"comment" => "7"}])
       end
 
-      it "emits que_define_schema after tables" do
+      it "emits que_define_schema before tables" do
         stream = StringIO.new
         dumper.send(:tables, stream)
         output = stream.string
 
         expect(output).to include("que_define_schema(version: 7)")
         expect(output).to include("# original tables output")
-        expect(output.index("que_define_schema")).to be > output.index("original tables")
+        expect(output.index("que_define_schema")).to be < output.index("original tables")
       end
     end
 
@@ -143,6 +143,70 @@ RSpec.describe QueSchema::SchemaDumper do
         dumper.send(:table, "que_jobs", stream)
         expect(stream.string).to include('create_table "que_jobs"')
       end
+    end
+  end
+
+  describe "#que_function? (private)" do
+    it "returns true for Que-managed functions" do
+      %w[que_validate_tags que_determine_job_state que_job_notify que_state_notify].each do |name|
+        expect(dumper.send(:que_function?, name)).to be true
+      end
+    end
+
+    it "returns false for functions from other que_* gems" do
+      expect(dumper.send(:que_function?, "que_scheduler_check_job_exists")).to be false
+      expect(dumper.send(:que_function?, "que_scheduler_prevent_job_deletion")).to be false
+    end
+  end
+
+  describe "#que_trigger? (private)" do
+    it "returns true for Que-managed triggers" do
+      expect(dumper.send(:que_trigger?, "que_job_notify")).to be true
+      expect(dumper.send(:que_trigger?, "que_state_notify")).to be true
+    end
+
+    it "returns false for triggers from other que_* gems" do
+      expect(dumper.send(:que_trigger?, "que_scheduler_prevent_job_deletion_trigger")).to be false
+    end
+  end
+
+  describe "#functions (private)" do
+    let(:que_fn) { double("function", name: "que_job_notify", to_schema: '  create_function :que_job_notify') }
+    let(:app_fn) { double("function", name: "my_app_function", to_schema: '  create_function :my_app_function') }
+    let(:scheduler_fn) { double("function", name: "que_scheduler_check_job_exists", to_schema: '  create_function :que_scheduler_check_job_exists') }
+
+    before do
+      stub_postgresql!
+      stub_const("Fx", double("Fx", database: double(functions: [que_fn, app_fn, scheduler_fn])))
+    end
+
+    it "filters out Que-managed functions" do
+      stream = StringIO.new
+      dumper.send(:functions, stream)
+      output = stream.string
+
+      expect(output).not_to include("que_job_notify")
+      expect(output).to include("my_app_function")
+      expect(output).to include("que_scheduler_check_job_exists")
+    end
+  end
+
+  describe "#triggers (private)" do
+    let(:que_trigger) { double("trigger", name: "que_job_notify", to_schema: '  create_trigger :que_job_notify') }
+    let(:app_trigger) { double("trigger", name: "que_scheduler_prevent_job_deletion_trigger", to_schema: '  create_trigger :que_scheduler_prevent_job_deletion_trigger') }
+
+    before do
+      stub_postgresql!
+      stub_const("Fx", double("Fx", database: double(triggers: [que_trigger, app_trigger])))
+    end
+
+    it "filters out Que-managed triggers" do
+      stream = StringIO.new
+      dumper.send(:triggers, stream)
+      output = stream.string
+
+      expect(output).not_to include("que_job_notify")
+      expect(output).to include("que_scheduler_prevent_job_deletion_trigger")
     end
   end
 

@@ -7,8 +7,14 @@ module QueSchema
         ActiveRecord::Migration.include(QueSchema::SchemaStatements)
         ActiveRecord::Migration.include(QueSchema::MigrationHelpers)
         ActiveRecord::Schema.include(QueSchema::SchemaStatements)
-        ActiveRecord::SchemaDumper.prepend(QueSchema::SchemaDumper)
       end
+    end
+
+    # Prepend SchemaDumper after initialization so it sits
+    # above Fx/Scenic in the ancestor chain and can filter
+    # out Que-managed functions and triggers.
+    config.after_initialize do
+      ActiveRecord::SchemaDumper.prepend(QueSchema::SchemaDumper)
     end
   end
 end
