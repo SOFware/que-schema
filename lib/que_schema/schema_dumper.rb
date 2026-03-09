@@ -16,7 +16,8 @@ module QueSchema
       end
     end
 
-    # Suppress all que_* tables — Que.migrate! creates them during schema load.
+    # Suppress Que-managed tables — Que.migrate! recreates them during
+    # schema load via que_define_schema.
     def table(table_name, stream)
       return if postgresql? && que_table?(table_name)
 
@@ -40,8 +41,12 @@ module QueSchema
       @connection.respond_to?(:adapter_name) && @connection.adapter_name.match?(/postgresql/i)
     end
 
+    # Only tables created by Que.migrate! — other que_* tables
+    # (e.g. que_scheduler_*) belong to separate gems.
+    QUE_MANAGED_TABLES = %w[que_jobs que_lockers que_values].freeze
+
     def que_table?(table_name)
-      table_name.start_with?("que_")
+      QUE_MANAGED_TABLES.include?(table_name)
     end
   end
 end

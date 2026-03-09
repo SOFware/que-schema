@@ -119,10 +119,10 @@ RSpec.describe QueSchema::SchemaDumper do
         expect(stream.string).to be_empty
       end
 
-      it "suppresses any future que_* table" do
+      it "does not suppress tables from other que_* gems" do
         stream = StringIO.new
-        dumper.send(:table, "que_something_new", stream)
-        expect(stream.string).to be_empty
+        dumper.send(:table, "que_scheduler_audit", stream)
+        expect(stream.string).to include('create_table "que_scheduler_audit"')
       end
 
       it "does not suppress non-que tables" do
@@ -147,11 +147,15 @@ RSpec.describe QueSchema::SchemaDumper do
   end
 
   describe "#que_table? (private)" do
-    it "returns true for que_ prefixed tables" do
+    it "returns true for Que-managed tables" do
       expect(dumper.send(:que_table?, "que_jobs")).to be true
       expect(dumper.send(:que_table?, "que_lockers")).to be true
       expect(dumper.send(:que_table?, "que_values")).to be true
-      expect(dumper.send(:que_table?, "que_new_future_table")).to be true
+    end
+
+    it "returns false for tables from other que_* gems" do
+      expect(dumper.send(:que_table?, "que_scheduler_audit")).to be false
+      expect(dumper.send(:que_table?, "que_scheduler_audit_enqueued")).to be false
     end
 
     it "returns false for non-que tables" do
