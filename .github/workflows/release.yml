@@ -13,3 +13,4 @@ jobs:
     uses: SOFware/reissue/.github/workflows/shared-ruby-gem-release.yml@main
     with:
       dry_run: ${{ inputs.dry_run }}
+      ruby_version: "4.0"
