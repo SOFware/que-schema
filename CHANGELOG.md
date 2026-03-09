@@ -2,6 +2,8 @@
 
 
 
+## [0.1.3] - Unreleased
+
 ## [0.1.2] - 2026-03-09
 
 ### Added
@@ -15,9 +17,3 @@
 ### Changed
 
 - SchemaDumper prepend timing for correct ancestor order (629c074)
-
-## [0.1.1] - 2026-03-09
-
-### Fixed
-
-- Schema dumper suppressing que_scheduler_* tables (1669e0d)
