@@ -1,0 +1,15 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        type: boolean
+        default: false
+        description: "Test without publishing to RubyGems"
+
+jobs:
+  release:
+    uses: SOFware/reissue/.github/workflows/shared-ruby-gem-release.yml@main
+    with:
+      dry_run: ${{ inputs.dry_run }}
