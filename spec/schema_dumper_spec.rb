@@ -146,6 +146,26 @@ RSpec.describe QueSchema::SchemaDumper do
     end
   end
 
+  describe "#foreign_keys" do
+    context "when PostgreSQL" do
+      before { stub_postgresql! }
+
+      it "suppresses foreign keys on que_jobs" do
+        stream = StringIO.new
+        dumper.send(:foreign_keys, "que_jobs", stream)
+        expect(stream.string).to be_empty
+      end
+
+      it "passes app tables through to super" do
+        stream = StringIO.new
+        expect { dumper.send(:foreign_keys, "users", stream) }
+          .to raise_error(NoMethodError, /super/)
+        # Raises because the test double has no real superclass —
+        # confirms the method delegates rather than suppressing.
+      end
+    end
+  end
+
   describe "#que_function? (private)" do
     it "returns true for Que-managed functions" do
       %w[que_validate_tags que_determine_job_state que_job_notify que_state_notify].each do |name|
@@ -314,6 +334,22 @@ RSpec.describe QueSchema::SchemaDumper do
 
         expect(output).not_to include("que_scheduler_prevent_job_deletion_trigger")
         expect(output).to include("my_app_trigger")
+      end
+    end
+
+    describe "#foreign_keys" do
+      before { stub_postgresql! }
+
+      it "suppresses foreign keys on que_scheduler tables" do
+        stream = StringIO.new
+        dumper.send(:foreign_keys, "que_scheduler_audit_enqueued", stream)
+        expect(stream.string).to be_empty
+      end
+
+      it "suppresses foreign keys on core que tables" do
+        stream = StringIO.new
+        dumper.send(:foreign_keys, "que_jobs", stream)
+        expect(stream.string).to be_empty
       end
     end
   end

@@ -97,6 +97,14 @@ module QueSchema
       false
     end
 
+    # Suppress foreign keys between Que-managed tables —
+    # Que.migrate! / scheduler migrations recreate them.
+    def foreign_keys(table, stream)
+      return if postgresql? && que_table?(table.to_s)
+
+      super
+    end
+
     # Override Fx::SchemaDumper methods to filter out
     # Que-managed objects when Fx is present.
     def functions(stream)
