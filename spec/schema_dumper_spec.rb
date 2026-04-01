@@ -228,6 +228,96 @@ RSpec.describe QueSchema::SchemaDumper do
     end
   end
 
+  context "when que-scheduler is present" do
+    before do
+      stub_const("Que::Scheduler::Migrations", double("Migrations"))
+    end
+
+    describe "#que_table?" do
+      it "suppresses que_scheduler tables" do
+        expect(dumper.send(:que_table?, "que_scheduler_audit")).to be true
+        expect(dumper.send(:que_table?, "que_scheduler_audit_enqueued")).to be true
+      end
+
+      it "still suppresses core que tables" do
+        expect(dumper.send(:que_table?, "que_jobs")).to be true
+      end
+
+      it "does not suppress non-que tables" do
+        expect(dumper.send(:que_table?, "users")).to be false
+      end
+    end
+
+    describe "#que_function?" do
+      it "suppresses que_scheduler functions" do
+        expect(dumper.send(:que_function?, "que_scheduler_check_job_exists")).to be true
+        expect(dumper.send(:que_function?, "que_scheduler_prevent_job_deletion")).to be true
+      end
+
+      it "still suppresses core que functions" do
+        expect(dumper.send(:que_function?, "que_job_notify")).to be true
+      end
+    end
+
+    describe "#que_trigger?" do
+      it "suppresses que_scheduler triggers" do
+        expect(dumper.send(:que_trigger?, "que_scheduler_prevent_job_deletion_trigger")).to be true
+      end
+
+      it "still suppresses core que triggers" do
+        expect(dumper.send(:que_trigger?, "que_job_notify")).to be true
+      end
+    end
+
+    describe "#table" do
+      before { stub_postgresql! }
+
+      it "suppresses que_scheduler_audit" do
+        stream = StringIO.new
+        dumper.send(:table, "que_scheduler_audit", stream)
+        expect(stream.string).to be_empty
+      end
+    end
+
+    describe "#functions" do
+      before do
+        stub_postgresql!
+        stub_const("Fx", double("Fx", database: double(functions: [
+          double("function", name: "que_scheduler_check_job_exists", to_schema: "  create_function :que_scheduler_check_job_exists"),
+          double("function", name: "my_app_function", to_schema: "  create_function :my_app_function")
+        ])))
+      end
+
+      it "filters out que_scheduler functions" do
+        stream = StringIO.new
+        dumper.send(:functions, stream)
+        output = stream.string
+
+        expect(output).not_to include("que_scheduler_check_job_exists")
+        expect(output).to include("my_app_function")
+      end
+    end
+
+    describe "#triggers" do
+      before do
+        stub_postgresql!
+        stub_const("Fx", double("Fx", database: double(triggers: [
+          double("trigger", name: "que_scheduler_prevent_job_deletion_trigger", to_schema: "  create_trigger :que_scheduler_prevent_job_deletion_trigger"),
+          double("trigger", name: "my_app_trigger", to_schema: "  create_trigger :my_app_trigger")
+        ])))
+      end
+
+      it "filters out que_scheduler triggers" do
+        stream = StringIO.new
+        dumper.send(:triggers, stream)
+        output = stream.string
+
+        expect(output).not_to include("que_scheduler_prevent_job_deletion_trigger")
+        expect(output).to include("my_app_trigger")
+      end
+    end
+  end
+
   describe "#que_schema_version (private)" do
     it "returns the version from the table comment" do
       allow(connection).to receive(:table_exists?).with("que_jobs").and_return(true)

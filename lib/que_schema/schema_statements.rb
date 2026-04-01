@@ -14,6 +14,14 @@ module QueSchema
 
       Que.connection_proc = proc { |&block| block.call(connection.raw_connection) }
       Que.migrate!(version: version.to_i)
+      apply_que_scheduler_schema
+    end
+
+    def apply_que_scheduler_schema
+      return unless defined?(Que::Scheduler::Migrations)
+
+      Que::Scheduler::Migrations.migrate!(version: Que::Scheduler::Migrations::MAX_VERSION)
+      Que::Scheduler::Migrations.reenqueue_scheduler_if_missing
     end
 
     private
