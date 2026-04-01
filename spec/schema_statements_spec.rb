@@ -64,6 +64,46 @@ RSpec.describe QueSchema::SchemaStatements do
     end
   end
 
+  describe "que-scheduler integration" do
+    context "when Que::Scheduler::Migrations is defined" do
+      before do
+        scheduler_mod = Module.new do
+          class << self
+            attr_accessor :migrate_called_with, :reenqueue_called
+
+            def migrate!(version:)
+              self.migrate_called_with = version
+            end
+
+            def reenqueue_scheduler_if_missing
+              self.reenqueue_called = true
+            end
+          end
+        end
+        scheduler_mod.const_set(:MAX_VERSION, 8)
+        stub_const("Que::Scheduler::Migrations", scheduler_mod)
+      end
+
+      it "calls Que::Scheduler::Migrations.migrate! with MAX_VERSION" do
+        instance.que_define_schema(version: 7)
+
+        expect(Que::Scheduler::Migrations.migrate_called_with).to eq(8)
+      end
+
+      it "calls reenqueue_scheduler_if_missing" do
+        instance.que_define_schema(version: 7)
+
+        expect(Que::Scheduler::Migrations.reenqueue_called).to be true
+      end
+    end
+
+    context "when Que::Scheduler::Migrations is not defined" do
+      it "does not raise an error" do
+        expect { instance.que_define_schema(version: 7) }.not_to raise_error
+      end
+    end
+  end
+
   describe "#postgresql? (private)" do
     it "returns false when no connection method exists" do
       obj = Object.new

@@ -44,7 +44,8 @@ module QueSchema
     end
 
     # Only objects created by Que.migrate! — other que_*
-    # objects (e.g. que_scheduler_*) belong to separate gems.
+    # objects (e.g. que_scheduler_*) belong to separate gems
+    # unless que-schema manages them too.
     QUE_MANAGED_TABLES = %w[
       que_jobs que_lockers que_values
     ].freeze
@@ -58,16 +59,42 @@ module QueSchema
       que_job_notify que_state_notify
     ].freeze
 
+    QUE_SCHEDULER_TABLES = %w[
+      que_scheduler_audit que_scheduler_audit_enqueued
+    ].freeze
+
+    QUE_SCHEDULER_FUNCTIONS = %w[
+      que_scheduler_check_job_exists
+      que_scheduler_prevent_job_deletion
+    ].freeze
+
+    QUE_SCHEDULER_TRIGGERS = %w[
+      que_scheduler_prevent_job_deletion_trigger
+    ].freeze
+
+    def que_scheduler?
+      defined?(Que::Scheduler::Migrations)
+    end
+
     def que_table?(table_name)
-      QUE_MANAGED_TABLES.include?(table_name)
+      return true if QUE_MANAGED_TABLES.include?(table_name)
+      return true if que_scheduler? && QUE_SCHEDULER_TABLES.include?(table_name)
+
+      false
     end
 
     def que_function?(name)
-      QUE_MANAGED_FUNCTIONS.include?(name.to_s)
+      return true if QUE_MANAGED_FUNCTIONS.include?(name.to_s)
+      return true if que_scheduler? && QUE_SCHEDULER_FUNCTIONS.include?(name.to_s)
+
+      false
     end
 
     def que_trigger?(name)
-      QUE_MANAGED_TRIGGERS.include?(name.to_s)
+      return true if QUE_MANAGED_TRIGGERS.include?(name.to_s)
+      return true if que_scheduler? && QUE_SCHEDULER_TRIGGERS.include?(name.to_s)
+
+      false
     end
 
     # Override Fx::SchemaDumper methods to filter out
