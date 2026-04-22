@@ -21,7 +21,6 @@ module QueSchema
       return unless defined?(Que::Scheduler::Migrations)
 
       Que::Scheduler::Migrations.migrate!(version: Que::Scheduler::Migrations::MAX_VERSION)
-      Que::Scheduler::Migrations.reenqueue_scheduler_if_missing
     end
 
     private
