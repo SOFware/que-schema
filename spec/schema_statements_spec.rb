@@ -90,10 +90,10 @@ RSpec.describe QueSchema::SchemaStatements do
         expect(Que::Scheduler::Migrations.migrate_called_with).to eq(8)
       end
 
-      it "calls reenqueue_scheduler_if_missing" do
+      it "does not call reenqueue_scheduler_if_missing during schema load" do
         instance.que_define_schema(version: 7)
 
-        expect(Que::Scheduler::Migrations.reenqueue_called).to be true
+        expect(Que::Scheduler::Migrations.reenqueue_called).to be_nil
       end
     end
 
